@@ -1,6 +1,5 @@
 name: MLops CI
 
-
 on:
   push:
     branches:
@@ -14,22 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.8'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
+
       - name: Run Data Processing Tests
         run: |
-                python src/data/run_processing.py \
-                  --input data/raw/house_data.csv \
-                  --output data/processed/cleaned_house_data.csv
+          python src/data/run_processing.py \
+            --input data/raw/house_data.csv \
+            --output data/processed/cleaned_house_data.csv
 
       - name: Do Feature Engineering
         run: |
@@ -37,7 +37,14 @@ jobs:
             --input data/processed/cleaned_house_data.csv \
             --output data/processed/featured_house_data.csv \
             --preprocessor models/trained/preprocessor.pkl
-          
+
+      - name: Setup MLflow
+        run: |
+          docker pull ghcr.io/mlflow/mlflow:latest
+          docker run -d --name mlflow-server -p 5555:5000 ghcr.io/mlflow/mlflow:latest \
+            mlflow server --host 0.0.0.0 \
+            --backend-store-uri sqlite:///mlflow.db \
+            --default-artifact-root /tmp/mlruns
 
       - name: Train the Model
         run: |
@@ -45,4 +52,10 @@ jobs:
             --config configs/model_config.yaml \
             --data data/processed/featured_house_data.csv \
             --models-dir models \
-          --mlflow-tracking-uri http://localhost:5555
+            --mlflow-tracking-uri http://localhost:5555
+
+      - name: Cleaning up MLflow
+        run: |
+          docker stop mlflow-server
+          docker rm mlflow-server
+          docker rmi ghcr.io/mlflow/mlflow:latest
