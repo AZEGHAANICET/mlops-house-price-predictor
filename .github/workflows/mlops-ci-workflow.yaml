@@ -9,6 +9,8 @@ on:
       - main
 
 jobs:
+  data-processing:
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -56,6 +58,9 @@ jobs:
 
       - name: Cleaning up MLflow
         run: |
-          docker stop mlflow-server
-          docker rm mlflow-server
-          docker rmi ghcr.io/mlflow/mlflow:latest
+          docker stop mlflow-server || true
+          docker rm mlflow-server || true
+
+  build-and-publish:
+      needs: model-
+
